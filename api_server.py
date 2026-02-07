@@ -1,14 +1,8 @@
 from flask import Flask, jsonify, request, render_template_string
+from sharesansarscraper import scrapesharesarstock
 import os
 
 app = Flask(__name__)
-
-# Try to import the scraper if available
-try:
-    from sharesansarscraper import scrapesharesarstock
-    SCRAPER_AVAILABLE = True
-except ImportError:
-    SCRAPER_AVAILABLE = False
 
 HTML_TEMPLATE = """
 <!DOCTYPE html>
@@ -23,11 +17,12 @@ HTML_TEMPLATE = """
         input { width: 70%; padding: 10px; font-size: 16px; border: 2px solid #ddd; border-radius: 5px; }
         button { width: 25%; padding: 10px; font-size: 16px; background-color: #4CAF50; color: white; border: none; border-radius: 5px; cursor: pointer; margin-left: 10px; }
         button:hover { background-color: #45a049; }
-        .output { background-color: #f9f9f9; padding: 20px; border-radius: 5px; border-left: 4px solid #4CAF50; margin-top: 20px; overflow-x: auto; }
-        pre { margin: 0; white-space: pre-wrap; word-wrap: break-word; }
+        .output { background-color: #f9f9f9; padding: 20px; border-radius: 5px; border-left: 4px solid #4CAF50; margin-top: 20px; overflow-x: auto; max-height: 500px; overflow-y: auto; }
+        pre { margin: 0; white-space: pre-wrap; word-wrap: break-word; font-size: 12px; }
         .api-docs { margin-top: 30px; padding: 20px; background-color: #e8f5e9; border-radius: 5px; }
         .endpoint { background-color: #fff; padding: 10px; margin: 10px 0; border-radius: 5px; border-left: 4px solid #2196F3; }
-        code { background-color: #f5f5f5; padding: 2px 6px; border-radius: 3px; font-family: monospace; }
+        code { background-color: #f5f5f5; padding: 2px 6px; border-radius: 3px; font-family: monospace; font-size: 12px; }
+        .error { color: #d32f2f; }
     </style>
 </head>
 <body>
@@ -45,12 +40,16 @@ HTML_TEMPLATE = """
             <div class="endpoint">
                 <strong>GET /api/stock/&lt;ticker&gt;</strong>
                 <p>Get stock data for a specific ticker</p>
-                <p>Example: <code>/api/stock/ghl</code></p>
+                <p>Example: <code>GET /api/stock/ghl</code></p>
             </div>
             <div class="endpoint">
                 <strong>GET /api/stock?ticker=&lt;ticker&gt;</strong>
                 <p>Alternative way to get stock data</p>
-                <p>Example: <code>/api/stock?ticker=nabil</code></p>
+                <p>Example: <code>GET /api/stock?ticker=nabil</code></p>
+            </div>
+            <div class="endpoint">
+                <strong>GET /health</strong>
+                <p>Health check endpoint</p>
             </div>
         </div>
     </div>
@@ -58,15 +57,16 @@ HTML_TEMPLATE = """
         function fetchStock() {
             const ticker = document.getElementById('ticker').value.trim();
             if (!ticker) { alert('Please enter a ticker symbol'); return; }
+            document.getElementById('output').style.display = 'block';
+            document.getElementById('result').textContent = 'Loading...';
             fetch('/api/stock/' + ticker)
                 .then(response => response.json())
                 .then(data => {
                     document.getElementById('result').textContent = JSON.stringify(data, null, 2);
-                    document.getElementById('output').style.display = 'block';
                 })
                 .catch(error => {
                     document.getElementById('result').textContent = 'Error: ' + error;
-                    document.getElementById('output').style.display = 'block';
+                    document.getElementById('result').className = 'error';
                 });
         }
         document.getElementById('ticker').addEventListener('keypress', function(e) {
@@ -86,33 +86,27 @@ def home():
 def get_stock_by_path(ticker):
     """Get stock data via URL path parameter"""
     try:
-        if SCRAPER_AVAILABLE:
-            data = scrapesharesarstock(ticker)
-            return jsonify({"status": "success", "ticker": ticker, "data": data})
-        else:
-            return jsonify({"status": "error", "message": "Scraper module not installed"}), 503
+        data = scrapesharesarstock(ticker)
+        return jsonify(data)
     except Exception as e:
-        return jsonify({"status": "error", "ticker": ticker, "message": str(e)}), 500
+        return jsonify({"error": str(e), "ticker": ticker}), 500
 
 @app.route('/api/stock', methods=['GET'])
 def get_stock_by_query():
     """Get stock data via query parameter"""
     ticker = request.args.get('ticker')
     if not ticker:
-        return jsonify({"status": "error", "message": "Ticker parameter is required"}), 400
+        return jsonify({"error": "Ticker parameter is required"}), 400
     try:
-        if SCRAPER_AVAILABLE:
-            data = scrapesharesarstock(ticker)
-            return jsonify({"status": "success", "ticker": ticker, "data": data})
-        else:
-            return jsonify({"status": "error", "message": "Scraper module not installed"}), 503
+        data = scrapesharesarstock(ticker)
+        return jsonify(data)
     except Exception as e:
-        return jsonify({"status": "error", "ticker": ticker, "message": str(e)}), 500
+        return jsonify({"error": str(e), "ticker": ticker}), 500
 
 @app.route('/health', methods=['GET'])
 def health_check():
     """Health check endpoint"""
-    return jsonify({"status": "healthy", "scraper_available": SCRAPER_AVAILABLE})
+    return jsonify({"status": "healthy", "service": "ShareSansar Stock API"})
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
@@ -122,9 +116,8 @@ if __name__ == '__main__':
     print('='*60)
     print(f'Server running at http://0.0.0.0:{port}')
     print('Available endpoints:')
-    print(f'  Web Interface: http://0.0.0.0:{port}/')
-    print(f'  API Endpoint: http://0.0.0.0:{port}/api/stock/<ticker>')
-    print(f'  Health Check: http://0.0.0.0:{port}/health')
-    print(f'Scraper Available: {SCRAPER_AVAILABLE}')
+    print(f'  Home: http://0.0.0.0:{port}/')
+    print(f'  API: http://0.0.0.0:{port}/api/stock/<ticker>')
+    print(f'  Health: http://0.0.0.0:{port}/health')
     print('='*60)
     app.run(debug=debug_mode, host='0.0.0.0', port=port)
