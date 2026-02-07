@@ -1,15 +1,8 @@
 from flask import Flask, jsonify, request, render_template_string
 import os
+from sharesansarscraper import scrapesharesarstock
 
 app = Flask(__name__)
-
-# Try to import the scraper - fail gracefully if not available
-scrapesharesarstock = None
-try:
-    from sharesansarscraper import scrapesharesarstock
-except ImportError as e:
-    print(f"Warning: Could not import sharesansarscraper: {e}")
-    print("API will return demo data until scraper is installed")
 
 HTML_TEMPLATE = """
 <!DOCTYPE html>
@@ -54,8 +47,8 @@ HTML_TEMPLATE = """
                 <p>Example: <code>GET /api/stock?ticker=nabil</code></p>
             </div>
             <div class="endpoint">
-                <strong>GET /health</strong>
-                <p>Health check endpoint</p>
+                <strong>GET /</strong>
+                <p>This web interface</p>
             </div>
         </div>
     </div>
@@ -63,17 +56,18 @@ HTML_TEMPLATE = """
         function fetchStock() {
             const ticker = document.getElementById('ticker').value.trim();
             if (!ticker) { alert('Please enter a ticker symbol'); return; }
-            document.getElementById('output').style.display = 'block';
-            document.getElementById('result').textContent = 'Loading...';
             fetch('/api/stock/' + ticker)
                 .then(response => response.json())
                 .then(data => {
                     document.getElementById('result').textContent = JSON.stringify(data, null, 2);
+                    document.getElementById('output').style.display = 'block';
                 })
                 .catch(error => {
                     document.getElementById('result').textContent = 'Error: ' + error;
+                    document.getElementById('output').style.display = 'block';
                 });
         }
+        // Allow Enter key to submit
         document.getElementById('ticker').addEventListener('keypress', function(e) {
             if (e.key === 'Enter') fetchStock();
         });
@@ -90,13 +84,11 @@ def home():
 @app.route('/api/stock/<ticker>', methods=['GET'])
 def get_stock_by_path(ticker):
     """Get stock data via URL path parameter"""
-    if not scrapesharesarstock:
-        return jsonify({"error": "Scraper module not available. Please ensure sharesansarscraper is installed."}), 503
     try:
         data = scrapesharesarstock(ticker)
         return jsonify(data)
     except Exception as e:
-        return jsonify({"error": str(e), "ticker": ticker}), 500
+        return jsonify({"error": str(e)}), 500
 
 @app.route('/api/stock', methods=['GET'])
 def get_stock_by_query():
@@ -104,31 +96,24 @@ def get_stock_by_query():
     ticker = request.args.get('ticker')
     if not ticker:
         return jsonify({"error": "Ticker parameter is required"}), 400
-    if not scrapesharesarstock:
-        return jsonify({"error": "Scraper module not available. Please ensure sharesansarscraper is installed."}), 503
     try:
         data = scrapesharesarstock(ticker)
         return jsonify(data)
     except Exception as e:
-        return jsonify({"error": str(e), "ticker": ticker}), 500
-
-@app.route('/health', methods=['GET'])
-def health_check():
-    """Health check endpoint"""
-    scraper_status = "installed" if scrapesharesarstock else "not installed"
-    return jsonify({"status": "healthy", "scraper": scraper_status})
+        return jsonify({"error": str(e)}), 500
 
 if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 5000))
-    debug_mode = os.environ.get('FLASK_ENV') == 'development'
-    print('='*60)
+    print('=' * 60)
     print('ShareSansar Stock API Server Starting...')
-    print('='*60)
-    print(f'Server running at http://0.0.0.0:{port}')
-    print('Scraper Status:', 'INSTALLED' if scrapesharesarstock else 'NOT INSTALLED')
+    print('=' * 60)
+    print('Server running at http://localhost:5000')
     print('Available endpoints:')
-    print(f'  Home: http://0.0.0.0:{port}/')
-    print(f'  API: http://0.0.0.0:{port}/api/stock/<ticker>')
-    print(f'  Health: http://0.0.0.0:{port}/health')
-    print('='*60)
-    app.run(debug=debug_mode, host='0.0.0.0', port=port)
+    print('  Web Interface: http://localhost:5000/')
+    print('  API Endpoint: http://localhost:5000/api/stock/<ticker>')
+    print('  Example API calls:')
+    print('    http://localhost:5000/api/stock/ghl')
+    print('    http://localhost:5000/api/stock/nabil')
+    print('    http://localhost:5000/api/stock?ticker=trh')
+    print('Press CTRL+C to stop the server')
+    print('=' * 60)
+    app.run(debug=True, host='0.0.0.0', port=5000)
