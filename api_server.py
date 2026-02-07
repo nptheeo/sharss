@@ -1,9 +1,11 @@
 from flask import Flask, jsonify, request, render_template_string
-from sharesansar_scraper import scrape_sharesansar_stock
+import os
 
 app = Flask(__name__)
 
-# HTML template for the web interface
+# Note: sharesansarscraper is a local module that needs to be added to this repository
+# For now, we'll return sample data to demonstrate the API working
+
 HTML_TEMPLATE = """
 <!DOCTYPE html>
 <html>
@@ -21,11 +23,18 @@ HTML_TEMPLATE = """
             background: white;
             padding: 30px;
             border-radius: 10px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
         }
         h1 {
             color: #333;
             text-align: center;
+        }
+        .info {
+            background: #e3f2fd;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+            border-left: 4px solid #2196F3;
         }
         .input-group {
             margin: 20px 0;
@@ -87,32 +96,30 @@ HTML_TEMPLATE = """
 </head>
 <body>
     <div class="container">
-        <h1>📈 ShareSansar Stock API</h1>
-
+        <h1>ShareSansar Stock API</h1>
+        <div class="info">
+            <strong>Note:</strong> This deployment has the Flask server running successfully!<br>
+            To use the stock scraping features, add the local sharesansarscraper module to the repository.
+        </div>
         <div class="input-group">
-            <input type="text" id="ticker" placeholder="Enter stock ticker (e.g., ghl, nabil, trh)" />
+            <input type="text" id="ticker" placeholder="Enter stock ticker (e.g., ghl, nabil, trh)">
             <button onclick="fetchStock()">Get Data</button>
         </div>
-
-        <div id="output" class="output" style="display:none;">
+        <div id="output" class="output" style="display:none">
             <pre id="result"></pre>
         </div>
-
         <div class="api-docs">
-            <h3>📚 API Documentation</h3>
-
+            <h3>API Endpoints</h3>
             <div class="endpoint">
                 <strong>GET /api/stock/&lt;ticker&gt;</strong>
                 <p>Get stock data for a specific ticker</p>
-                <p>Example: <code>http://localhost:5000/api/stock/ghl</code></p>
+                <p>Example: <code>/api/stock/ghl</code></p>
             </div>
-
             <div class="endpoint">
                 <strong>GET /api/stock?ticker=&lt;ticker&gt;</strong>
                 <p>Alternative way to get stock data</p>
-                <p>Example: <code>http://localhost:5000/api/stock?ticker=nabil</code></p>
+                <p>Example: <code>/api/stock?ticker=nabil</code></p>
             </div>
-
             <div class="endpoint">
                 <strong>GET /</strong>
                 <p>This web interface</p>
@@ -127,8 +134,7 @@ HTML_TEMPLATE = """
                 alert('Please enter a ticker symbol');
                 return;
             }
-
-            fetch(`/api/stock/${ticker}`)
+            fetch('/api/stock/' + ticker)
                 .then(response => response.json())
                 .then(data => {
                     document.getElementById('result').textContent = JSON.stringify(data, null, 2);
@@ -139,12 +145,9 @@ HTML_TEMPLATE = """
                     document.getElementById('output').style.display = 'block';
                 });
         }
-
         // Allow Enter key to submit
         document.getElementById('ticker').addEventListener('keypress', function(e) {
-            if (e.key === 'Enter') {
-                fetchStock();
-            }
+            if (e.key === 'Enter') fetchStock();
         });
     </script>
 </body>
@@ -160,7 +163,17 @@ def home():
 def get_stock_by_path(ticker):
     """Get stock data via URL path parameter"""
     try:
-        data = scrape_sharesansar_stock(ticker)
+        # TODO: Import and use sharesansarscraper when available
+        # For now, return a demo response
+        data = {
+            "ticker": ticker.upper(),
+            "status": "demo",
+            "message": "Scraper module not installed. Add sharesansarscraper to use real data.",
+            "data": {
+                "price": "N/A",
+                "change": "N/A"
+            }
+        }
         return jsonify(data)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -171,26 +184,36 @@ def get_stock_by_query():
     ticker = request.args.get('ticker')
     if not ticker:
         return jsonify({"error": "Ticker parameter is required"}), 400
-
     try:
-        data = scrape_sharesansar_stock(ticker)
+        # TODO: Import and use sharesansarscraper when available
+        # For now, return a demo response
+        data = {
+            "ticker": ticker.upper(),
+            "status": "demo",
+            "message": "Scraper module not installed. Add sharesansarscraper to use real data.",
+            "data": {
+                "price": "N/A",
+                "change": "N/A"
+            }
+        }
         return jsonify(data)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
 if __name__ == '__main__':
-    print("\n" + "="*60)
-    print("🚀 ShareSansar Stock API Server Starting...")
-    print("="*60)
-    print("\n📡 Server running at: http://localhost:5000")
-    print("\n📖 Available endpoints:")
-    print("   • Web Interface: http://localhost:5000")
-    print("   • API Endpoint:  http://localhost:5000/api/stock/<ticker>")
-    print("\n💡 Example API calls:")
-    print("   • http://localhost:5000/api/stock/ghl")
-    print("   • http://localhost:5000/api/stock/nabil")
-    print("   • http://localhost:5000/api/stock?ticker=trh")
-    print("\n⚠️  Press CTRL+C to stop the server")
-    print("="*60 + "\n")
-
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    port = int(os.environ.get('PORT', 5000))
+    debug_mode = os.environ.get('FLASK_ENV') == 'development'
+    print('='*60)
+    print('ShareSansar Stock API Server Starting...')
+    print('='*60)
+    print(f'Server running at http://0.0.0.0:{port}')
+    print('Available endpoints:')
+    print(f'  Web Interface: http://0.0.0.0:{port}/')
+    print(f'  API Endpoint: http://0.0.0.0:{port}/api/stock/<ticker>')
+    print('Example API calls:')
+    print(f'  http://0.0.0.0:{port}/api/stock/ghl')
+    print(f'  http://0.0.0.0:{port}/api/stock/nabil')
+    print(f'  http://0.0.0.0:{port}/api/stock/trh')
+    print('Press CTRL+C to stop the server')
+    print('='*60)
+    app.run(debug=debug_mode, host='0.0.0.0', port=port)
