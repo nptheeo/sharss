@@ -1,8 +1,15 @@
 from flask import Flask, jsonify, request, render_template_string
-from sharesansarscraper import scrapesharesarstock
 import os
 
 app = Flask(__name__)
+
+# Try to import the scraper - fail gracefully if not available
+scrapesharesarstock = None
+try:
+    from sharesansarscraper import scrapesharesarstock
+except ImportError as e:
+    print(f"Warning: Could not import sharesansarscraper: {e}")
+    print("API will return demo data until scraper is installed")
 
 HTML_TEMPLATE = """
 <!DOCTYPE html>
@@ -22,7 +29,6 @@ HTML_TEMPLATE = """
         .api-docs { margin-top: 30px; padding: 20px; background-color: #e8f5e9; border-radius: 5px; }
         .endpoint { background-color: #fff; padding: 10px; margin: 10px 0; border-radius: 5px; border-left: 4px solid #2196F3; }
         code { background-color: #f5f5f5; padding: 2px 6px; border-radius: 3px; font-family: monospace; font-size: 12px; }
-        .error { color: #d32f2f; }
     </style>
 </head>
 <body>
@@ -66,7 +72,6 @@ HTML_TEMPLATE = """
                 })
                 .catch(error => {
                     document.getElementById('result').textContent = 'Error: ' + error;
-                    document.getElementById('result').className = 'error';
                 });
         }
         document.getElementById('ticker').addEventListener('keypress', function(e) {
@@ -85,6 +90,8 @@ def home():
 @app.route('/api/stock/<ticker>', methods=['GET'])
 def get_stock_by_path(ticker):
     """Get stock data via URL path parameter"""
+    if not scrapesharesarstock:
+        return jsonify({"error": "Scraper module not available. Please ensure sharesansarscraper is installed."}), 503
     try:
         data = scrapesharesarstock(ticker)
         return jsonify(data)
@@ -97,6 +104,8 @@ def get_stock_by_query():
     ticker = request.args.get('ticker')
     if not ticker:
         return jsonify({"error": "Ticker parameter is required"}), 400
+    if not scrapesharesarstock:
+        return jsonify({"error": "Scraper module not available. Please ensure sharesansarscraper is installed."}), 503
     try:
         data = scrapesharesarstock(ticker)
         return jsonify(data)
@@ -106,7 +115,8 @@ def get_stock_by_query():
 @app.route('/health', methods=['GET'])
 def health_check():
     """Health check endpoint"""
-    return jsonify({"status": "healthy", "service": "ShareSansar Stock API"})
+    scraper_status = "installed" if scrapesharesarstock else "not installed"
+    return jsonify({"status": "healthy", "scraper": scraper_status})
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
@@ -115,6 +125,7 @@ if __name__ == '__main__':
     print('ShareSansar Stock API Server Starting...')
     print('='*60)
     print(f'Server running at http://0.0.0.0:{port}')
+    print('Scraper Status:', 'INSTALLED' if scrapesharesarstock else 'NOT INSTALLED')
     print('Available endpoints:')
     print(f'  Home: http://0.0.0.0:{port}/')
     print(f'  API: http://0.0.0.0:{port}/api/stock/<ticker>')
